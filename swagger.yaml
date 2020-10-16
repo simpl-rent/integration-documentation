@@ -1,0 +1,171 @@
+swagger: '2.0'
+info:
+  description: |
+    # Introduction
+    API meant to be used for integrating with Simpl.rent.
+    
+    It allows generating verification links for potential tenants - 
+    used later to confirm their identity, credibility, affordability and viewing the results.
+     
+    # Authentication
+    Every API request must contain valid API key in HTTP header 'Authorization'.
+    
+    User API keys are available on the integration page after signing into account (https://simpl.rent/integracje)  
+
+    <SecurityDefinitions />
+    
+  version: '1.0'
+  title: Simpl integration API
+  termsOfService: https://simpl.rent/static/pl/terms-of-service.pdf
+  contact:
+    email: support@simpl.rent
+host: 'localhost:8080'
+basePath: /api/v1/integration
+tags:
+  - name: Account
+    description: Accessing user related data
+  - name: Verifications
+    description: Generating verification links and tracking their progress
+x-tagGroups:
+  - name: General
+    tags:
+      - Account
+      - Verifications
+paths:
+  /account/balance:
+    get:
+      tags:
+        - Account
+      summary: Check balance
+      description: Get available credits for account
+      operationId: checkBalanceUsingGET
+      produces:
+        - application/json;charset=UTF-8
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/AccountBalanceResponseDTO'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+      deprecated: false
+  /verifications:
+    get:
+      tags:
+        - Verifications
+      summary: Get verifications
+      description: Get list of all verifications which user owns. Optionally include referenceId as parameter to retrieve specific one.
+      operationId: getVerificationsUsingGET
+      produces:
+        - application/json;charset=UTF-8
+      parameters:
+        - name: referenceId
+          in: query
+          description: referenceId
+          required: false
+          type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/VerificationReportDetailsApiResponseDTO'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+      deprecated: false
+    post:
+      tags:
+        - Verifications
+      summary: Create verification
+      description: Create new verification and get it's link to share with potential tenants.
+      operationId: createVerificationLinkUsingPOST
+      consumes:
+        - application/json
+      produces:
+        - application/json;charset=UTF-8
+      parameters:
+        - in: body
+          name: verificationLinkApiRequestDTO
+          description: verificationLinkApiRequestDTO
+          required: true
+          schema:
+            $ref: '#/definitions/VerificationLinkApiRequestDTO'
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/CreateDynamicLinkResponseDTO'
+        '201':
+          description: Created
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+      deprecated: false
+definitions:
+  AccountBalanceResponseDTO:
+    type: object
+    properties:
+      credits:
+        type: integer
+        format: int32
+    title: AccountBalanceResponseDTO
+  CreateDynamicLinkResponseDTO:
+    type: object
+    properties:
+      verificationId:
+        type: string
+      verificationUrl:
+        type: string
+    title: CreateDynamicLinkResponseDTO
+  VerificationLinkApiRequestDTO:
+    type: object
+    properties:
+      propertyAddress:
+        type: string
+      referenceId:
+        type: string
+      rentalAmount:
+        type: number
+    title: VerificationLinkApiRequestDTO
+  VerificationReportDetailsApiResponseDTO:
+    type: object
+    properties:
+      affordabilityStatus:
+        type: string
+        enum:
+          - UNAVAILABLE
+          - PENDING
+          - PASSED
+          - FAILED
+      creditStatus:
+        type: string
+        enum:
+          - UNAVAILABLE
+          - PENDING
+          - PASSED
+          - FAILED
+      identityCheckStatus:
+        type: string
+        enum:
+          - UNAVAILABLE
+          - PENDING
+          - PASSED
+          - FAILED
+      referenceId:
+        type: string
+      verificationId:
+        type: string
+    title: VerificationReportDetailsApiResponseDTO
+
