@@ -5,12 +5,13 @@ info:
     API meant to be used for integrating with Simpl.rent.
     
     It allows generating verification links for potential tenants - 
-    used later to confirm their identity, credibility, affordability and viewing the results.
-     
-    # Authentication
-    Every API request must contain valid API key in HTTP header 'Authorization'.
+    used later to confirm their identity, credibility, affordability and viewing the results.<br>
+    ### host: https://api.simpl.rent
     
-    User API keys are available on the integration page after signing into account (https://simpl.rent/integracje)  
+    # Authentication
+    There are two types of authentication allowed: apiKey and simplAuth (OAuth2). <br>
+    ApiKey is easier to implement but it requires every user to generate his API key.<br>
+    OAuth2 flow does not burden the user with unnecessary activities and offers better user experience.  
 
     <SecurityDefinitions />
     
@@ -19,7 +20,7 @@ info:
   termsOfService: https://simpl.rent/static/pl/terms-of-service.pdf
   contact:
     email: support@simpl.rent
-host: 'localhost:8080'
+host: 'api.simpl.rent'
 basePath: /api/v1/integration
 tags:
   - name: Account
@@ -31,6 +32,24 @@ x-tagGroups:
     tags:
       - Account
       - Verifications
+securityDefinitions:
+  apiKey:
+    in: header
+    name: Authorization
+    type: apiKey
+    description: |
+        Every API request must contain valid API key in HTTP header 'Authorization'. <br>
+        User API keys are available on the integration page after signing into account (https://simpl.rent/integracje)  
+  simplAuth:
+   description: |
+        One way of utilizing this method is to use keycloak adapter: https://www.keycloak.org/docs/latest/securing_apps/ </br>
+        To obtain client credentials (client ID and secret) please contact our support: support@simpl.rent
+   authorizationUrl: 'https://auth.simpl.rent/auth/realms/integration/protocol/openid-connect/auth'
+   tokenUrl: 'https://auth.simpl.rent/auth/realms/integration/protocol/openid-connect/token'
+   flow: accessCode
+   scopes:
+     email: to read username/email (granted by default)
+   type: oauth2
 paths:
   /account/balance:
     get:
@@ -168,4 +187,3 @@ definitions:
       verificationId:
         type: string
     title: VerificationReportDetailsApiResponseDTO
-
