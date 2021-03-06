@@ -3,18 +3,13 @@ info:
   description: |
     # Introduction
     API meant to be used for integrating with Simpl.rent.
-    
-    It allows generating verification links for potential tenants - 
+
+    It allows generating verification links for potential tenants -
     used later to confirm their identity, credibility, affordability and viewing the results.<br>
     ### host: https://api.simpl.rent
-    
-    # Authentication
-    There are two types of authentication allowed: apiKey and simplAuth (OAuth2). <br>
-    ApiKey is easier to implement but it requires every user to generate his API key.<br>
-    OAuth2 flow does not burden the user with unnecessary activities and offers better user experience.  
 
     <SecurityDefinitions />
-    
+
   version: '1.0'
   title: Simpl integration API
   termsOfService: https://simpl.rent/static/pl/terms-of-service.pdf
@@ -27,6 +22,8 @@ tags:
     description: Accessing user related data
   - name: Verifications
     description: Generating verification links and tracking their progress
+  - name: test-controller
+    description: Test Controller
 x-tagGroups:
   - name: General
     tags:
@@ -38,18 +35,8 @@ securityDefinitions:
     name: Authorization
     type: apiKey
     description: |
-        Every API request must contain valid API key in HTTP header 'Authorization'. <br>
-        User API keys are available on the integration page after signing into account (https://simpl.rent/integracje)  
-  simplAuth:
-   description: |
-        One way of utilizing this method is to use keycloak adapter: https://www.keycloak.org/docs/latest/securing_apps/ </br>
-        To obtain client credentials (client ID and secret) please contact our support: support@simpl.rent
-   authorizationUrl: 'https://auth.simpl.rent/auth/realms/integration/protocol/openid-connect/auth'
-   tokenUrl: 'https://auth.simpl.rent/auth/realms/integration/protocol/openid-connect/token'
-   flow: accessCode
-   scopes:
-     email: to read username/email (granted by default)
-   type: oauth2
+      Every API request must contain valid API key in HTTP header 'Authorization'. <br>
+      User API keys are available on the integration page after signing into account (https://simpl.rent/integracje)
 paths:
   /account/balance:
     get:
@@ -76,24 +63,18 @@ paths:
     get:
       tags:
         - Verifications
-      summary: Get verifications
-      description: Get list of all verifications which user owns. Optionally include referenceId as parameter to retrieve specific one.
+      summary: Get all verifications
+      description: Get list of all verifications which user owns.
       operationId: getVerificationsUsingGET
       produces:
         - application/json;charset=UTF-8
-      parameters:
-        - name: referenceId
-          in: query
-          description: referenceId
-          required: false
-          type: string
       responses:
         '200':
           description: OK
           schema:
             type: array
             items:
-              $ref: '#/definitions/VerificationReportDetailsApiResponseDTO'
+              $ref: '#/definitions/VerificationResponseDTO'
         '401':
           description: Unauthorized
         '403':
@@ -125,6 +106,106 @@ paths:
             $ref: '#/definitions/CreateDynamicLinkResponseDTO'
         '201':
           description: Created
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+      deprecated: false
+  '/verifications/{referenceId}':
+    get:
+      tags:
+        - Verifications
+      summary: Get verification details
+      description: Add referenceId as path variable to retrieve details of specific
+        verification.
+      operationId: getVerificationDetailsUsingGET
+      produces:
+        - application/json;charset=UTF-8
+      parameters:
+        - name: referenceId
+          in: path
+          description: referenceId
+          required: true
+          type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            $ref: '#/definitions/VerificationResponseDTO'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+      deprecated: false
+  '/verifications/{referenceId}/cancel':
+    post:
+      tags:
+        - Verifications
+      summary: Cancel verification
+      description: Cancel verification and get used credit back.
+      operationId: cancelVerificationUsingPOST
+      consumes:
+        - application/json
+      produces:
+        - application/json;charset=UTF-8
+      parameters:
+        - name: referenceId
+          in: path
+          description: referenceId
+          required: true
+          type: string
+      responses:
+        '200':
+          description: OK
+        '201':
+          description: Created
+        '400':
+          description: Bad request - with message
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+      deprecated: false
+  '/verifications/{referenceId}/test-notification':
+    put:
+      tags:
+        - Verifications
+      summary: Foward notification
+      description: Manually trigger status change notification - only for testing purposes
+      operationId: triggerNotificationUsingPUT
+      consumes:
+        - application/json
+      produces:
+        - application/json;charset=UTF-8
+      parameters:
+        - in: body
+          name: dto
+          description: dto
+          required: true
+          schema:
+            $ref: '#/definitions/VerificationResponseDTO'
+        - name: referenceId
+          in: path
+          description: referenceId
+          required: true
+          type: string
+      responses:
+        '200':
+          description: OK
+          schema:
+            type: object
+        '201':
+          description: Created
+        '400':
+          description: Bad request
         '401':
           description: Unauthorized
         '403':
@@ -143,14 +224,14 @@ definitions:
   CreateDynamicLinkResponseDTO:
     type: object
     properties:
-      verificationId:
-        type: string
       verificationUrl:
         type: string
     title: CreateDynamicLinkResponseDTO
   VerificationLinkApiRequestDTO:
     type: object
     properties:
+      notificationCallbackUrl:
+        type: string
       propertyAddress:
         type: string
       referenceId:
@@ -158,9 +239,44 @@ definitions:
       rentalAmount:
         type: number
     title: VerificationLinkApiRequestDTO
-  VerificationReportDetailsApiResponseDTO:
+  VerificationResponseDTO:
     type: object
     properties:
+      affordabilityExplanationCode:
+        type: string
+        enum:
+          - NOT_STARTED_STEP
+          - PENDING_BANK_TRANSFER
+          - PENDING_IDENTITY
+          - PASSED_IDENTITY
+          - DENIED_IDENTITY
+          - FAILED_IDENTITY
+          - SUBMITTED_AFFORDABILITY
+          - PENDING_AFFORDABILITY
+          - FAILED_AFFORDABILITY_KONTOMATIK
+          - FAILED_AFFORDABILITY_MANUAL
+          - SKIPPED_AFFORDABILITY
+          - UNDETERMINED_AFFORDABILITY
+          - PASSED_AFFORDABILITY_MANUAL
+          - PASSED_AFFORDABILITY_KONTOMATIK
+          - SUBMITTED_CREDIT
+          - SKIPPED_CREDIT
+          - FAILED_CREDIT
+          - PASSED_CREDIT
+          - NOT_STARTED_VERIFICATION
+          - PENDING_VERIFICATION
+          - FAILED_IDENTITY_FINAL
+          - PASSED_FINAL
+          - FAILED_AFFORDABILITY_AND_CREDIT_FINAL
+          - FAILED_AFFORDABILITY_FINAL
+          - FAILED_AFFORDABILITY_SKIPPED_CREDIT_FINAL
+          - FAILED_CREDIT_FINAL
+          - FAILED_SKIPPED_AFFORDABILITY_FINAL
+          - PENDING_AFFORDABILITY_FINAL
+          - PENDING_CREDIT_FINAL
+          - PENDING_CREDIT_AND_AFFORDABILITY
+          - FAILED_UNDETERMINED_FINAL
+          - PASSED_SKIPPED_CREDIT_FINAL
       affordabilityStatus:
         type: string
         enum:
@@ -168,6 +284,44 @@ definitions:
           - PENDING
           - PASSED
           - FAILED
+          - NOT_STARTED
+          - UNDETERMINED
+          - SUBMITTED
+      creditExplanationCode:
+        type: string
+        enum:
+          - NOT_STARTED_STEP
+          - PENDING_BANK_TRANSFER
+          - PENDING_IDENTITY
+          - PASSED_IDENTITY
+          - DENIED_IDENTITY
+          - FAILED_IDENTITY
+          - SUBMITTED_AFFORDABILITY
+          - PENDING_AFFORDABILITY
+          - FAILED_AFFORDABILITY_KONTOMATIK
+          - FAILED_AFFORDABILITY_MANUAL
+          - SKIPPED_AFFORDABILITY
+          - UNDETERMINED_AFFORDABILITY
+          - PASSED_AFFORDABILITY_MANUAL
+          - PASSED_AFFORDABILITY_KONTOMATIK
+          - SUBMITTED_CREDIT
+          - SKIPPED_CREDIT
+          - FAILED_CREDIT
+          - PASSED_CREDIT
+          - NOT_STARTED_VERIFICATION
+          - PENDING_VERIFICATION
+          - FAILED_IDENTITY_FINAL
+          - PASSED_FINAL
+          - FAILED_AFFORDABILITY_AND_CREDIT_FINAL
+          - FAILED_AFFORDABILITY_FINAL
+          - FAILED_AFFORDABILITY_SKIPPED_CREDIT_FINAL
+          - FAILED_CREDIT_FINAL
+          - FAILED_SKIPPED_AFFORDABILITY_FINAL
+          - PENDING_AFFORDABILITY_FINAL
+          - PENDING_CREDIT_FINAL
+          - PENDING_CREDIT_AND_AFFORDABILITY
+          - FAILED_UNDETERMINED_FINAL
+          - PASSED_SKIPPED_CREDIT_FINAL
       creditStatus:
         type: string
         enum:
@@ -175,15 +329,103 @@ definitions:
           - PENDING
           - PASSED
           - FAILED
-      identityCheckStatus:
+          - NOT_STARTED
+          - UNDETERMINED
+          - SUBMITTED
+      finalExplanationCode:
+        type: string
+        enum:
+          - NOT_STARTED_STEP
+          - PENDING_BANK_TRANSFER
+          - PENDING_IDENTITY
+          - PASSED_IDENTITY
+          - DENIED_IDENTITY
+          - FAILED_IDENTITY
+          - SUBMITTED_AFFORDABILITY
+          - PENDING_AFFORDABILITY
+          - FAILED_AFFORDABILITY_KONTOMATIK
+          - FAILED_AFFORDABILITY_MANUAL
+          - SKIPPED_AFFORDABILITY
+          - UNDETERMINED_AFFORDABILITY
+          - PASSED_AFFORDABILITY_MANUAL
+          - PASSED_AFFORDABILITY_KONTOMATIK
+          - SUBMITTED_CREDIT
+          - SKIPPED_CREDIT
+          - FAILED_CREDIT
+          - PASSED_CREDIT
+          - NOT_STARTED_VERIFICATION
+          - PENDING_VERIFICATION
+          - FAILED_IDENTITY_FINAL
+          - PASSED_FINAL
+          - FAILED_AFFORDABILITY_AND_CREDIT_FINAL
+          - FAILED_AFFORDABILITY_FINAL
+          - FAILED_AFFORDABILITY_SKIPPED_CREDIT_FINAL
+          - FAILED_CREDIT_FINAL
+          - FAILED_SKIPPED_AFFORDABILITY_FINAL
+          - PENDING_AFFORDABILITY_FINAL
+          - PENDING_CREDIT_FINAL
+          - PENDING_CREDIT_AND_AFFORDABILITY
+          - FAILED_UNDETERMINED_FINAL
+          - PASSED_SKIPPED_CREDIT_FINAL
+      finalStatus:
         type: string
         enum:
           - UNAVAILABLE
           - PENDING
           - PASSED
           - FAILED
+          - NOT_STARTED
+          - UNDETERMINED
+          - SUBMITTED
+      identityExplanationCode:
+        type: string
+        enum:
+          - NOT_STARTED_STEP
+          - PENDING_BANK_TRANSFER
+          - PENDING_IDENTITY
+          - PASSED_IDENTITY
+          - DENIED_IDENTITY
+          - FAILED_IDENTITY
+          - SUBMITTED_AFFORDABILITY
+          - PENDING_AFFORDABILITY
+          - FAILED_AFFORDABILITY_KONTOMATIK
+          - FAILED_AFFORDABILITY_MANUAL
+          - SKIPPED_AFFORDABILITY
+          - UNDETERMINED_AFFORDABILITY
+          - PASSED_AFFORDABILITY_MANUAL
+          - PASSED_AFFORDABILITY_KONTOMATIK
+          - SUBMITTED_CREDIT
+          - SKIPPED_CREDIT
+          - FAILED_CREDIT
+          - PASSED_CREDIT
+          - NOT_STARTED_VERIFICATION
+          - PENDING_VERIFICATION
+          - FAILED_IDENTITY_FINAL
+          - PASSED_FINAL
+          - FAILED_AFFORDABILITY_AND_CREDIT_FINAL
+          - FAILED_AFFORDABILITY_FINAL
+          - FAILED_AFFORDABILITY_SKIPPED_CREDIT_FINAL
+          - FAILED_CREDIT_FINAL
+          - FAILED_SKIPPED_AFFORDABILITY_FINAL
+          - PENDING_AFFORDABILITY_FINAL
+          - PENDING_CREDIT_FINAL
+          - PENDING_CREDIT_AND_AFFORDABILITY
+          - FAILED_UNDETERMINED_FINAL
+          - PASSED_SKIPPED_CREDIT_FINAL
+      identityStatus:
+        type: string
+        enum:
+          - UNAVAILABLE
+          - PENDING
+          - PASSED
+          - FAILED
+          - NOT_STARTED
+          - UNDETERMINED
+          - SUBMITTED
       referenceId:
         type: string
-      verificationId:
+      tenantName:
         type: string
-    title: VerificationReportDetailsApiResponseDTO
+      tenantSurname:
+        type: string
+    title: VerificationResponseDTO
